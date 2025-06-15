@@ -5,29 +5,36 @@ import (
 	"fmt"    // Implements formatted I/O functions
 	"io"     // Provides basic I/O primitives
 	"log"    // Provides logging functions
-	"os"     // Provides functions for OS-level operations
+
+	// Provides functions for OS-level operations
+	"net"
 	"strings"
 )
 
-// Define the path to the input file
-const inputFilePath = "messages.txt"
+// What port to lisen on
+const port = ":42069"
 
 func main() {
-	// Attempt to open the specified file for reading
-	f, err := os.Open(inputFilePath)
+	listener, err := net.Listen("tcp", port)
 	if err != nil {
-		// If an error occurs, log the error and terminate the program
-		log.Fatalf("could not open %s: %s\n", inputFilePath, err)
+		log.Fatalf("error listening for TCP traffic: %s\n", err.Error())
 	}
+	defer listener.Close()
 
-	// Print a message indicating that data is being read from the file
-	fmt.Printf("Reading data from %s\n", inputFilePath)
-	fmt.Println("=====================================")
+	fmt.Println("Listening for TCP traffic on", port)
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Fatalf("error: %s\n", err.Error())
+		}
+		fmt.Println("Accepted connection from", conn.RemoteAddr())
 
-	lineschan := getLinesChannel(f)
+		linesChan := getLinesChannel(conn)
 
-	for line := range lineschan {
-		fmt.Println("read:", line)
+		for line := range linesChan {
+			fmt.Println(line)
+		}
+		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
 	}
 }
 

@@ -1,14 +1,12 @@
 package main
 
 import (
-	"errors" // Provides functions for error handling
-	"fmt"    // Implements formatted I/O functions
-	"io"     // Provides basic I/O primitives
-	"log"    // Provides logging functions
+	"fmt"
+	"log"
 
-	// Provides functions for OS-level operations
 	"net"
-	"strings"
+
+	"github.com/Jonathan-prog1/httpfromtcp/internal/request"
 )
 
 // What port to lisen on
@@ -29,50 +27,13 @@ func main() {
 		}
 		fmt.Println("Accepted connection from", conn.RemoteAddr())
 
-		linesChan := getLinesChannel(conn)
-
-		for line := range linesChan {
-			fmt.Println(line)
+		req, err := request.RequestFromReader(conn)
+		if err != nil {
+			log.Fatalf("error parsing request: %s\n", err)
 		}
-		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
+		fmt.Println("Request line:")
+		fmt.Printf("- Method: %s\n", req.RequestLine.Method)
+		fmt.Printf("- Target: %s\n", req.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n", req.RequestLine.HttpVersion)
 	}
-}
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	lines := make(chan string)
-	go func() {
-		defer f.Close()
-		defer close(lines)
-		// Holds the current line
-		currentLineContents := ""
-		// Infinite loop to read the file in chunks
-		for {
-			// Create a buffer to hold the data read from the file
-			buffer := make([]byte, 8, 8)
-			// Read data into the buffer
-			n, err := f.Read(buffer)
-			if err != nil {
-				// This sees if the current line is empty
-				if currentLineContents != "" {
-					lines <- currentLineContents
-				}
-				// Check if the end of the file has been reached
-				if errors.Is(err, io.EOF) {
-					break // Exit the loop if the end of the file is reached
-				}
-				// If another error occurs, print the error and exit the loop
-				fmt.Printf("error: %s\n", err.Error())
-				break
-			}
-			// Convert the read bytes into a string and print it
-			str := string(buffer[:n])
-			parts := strings.Split(str, "\n")
-			for i := 0; i < len(parts)-1; i++ {
-				lines <- fmt.Sprintf("%s%s", currentLineContents, parts[i])
-				currentLineContents = ""
-			}
-			currentLineContents += parts[len(parts)-1]
-		}
-	}()
-	return lines
 }
